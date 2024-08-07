@@ -17,18 +17,21 @@ void invert_line(const word line)
 	}
 }
 
-void wait(word seconds)
+void delay(ushort after_ticks)
 {
-	word i = 0;
-	word j = 0;
-	for(j = 0;j < seconds;j++)
-	{
-		for(i = 0;i < 150;)
-		{
-			i++;
-			invert_line(-1);
-		}
-	}
+    if ((FCON & 2) != 0)
+        FCON &= 0xfd;
+    __DI();
+    Timer0Interval = after_ticks;
+    Timer0Counter = 0;
+    Timer0Control = 0x0101;
+    InterruptPending_W0 = 0;
+    StopAcceptor = 0x50;
+    StopAcceptor = 0xa0;
+    StopControl = 2;
+    __asm("nop");
+    __asm("nop");
+    __EI();
 }
 
 void drawbitmap(const byte* ptr, word offset, byte width, byte height,byte color)
@@ -302,6 +305,7 @@ byte menu(const byte* option_a, const byte* option_b, const byte* option_c, cons
 		byte pressedbutton = CheckButtons();
 		if(pressedbutton == 0xff)
 		{
+			delay(0x100);
 			continue;
 		} else if(pressedbutton == SP_DOWN) {
 			i++;
@@ -359,6 +363,7 @@ byte menu_2(const byte* option_a, const byte* option_b)
 		byte pressedbutton = CheckButtons();
 		if(pressedbutton == 0xff)
 		{
+			delay(0x100);
 			continue;
 		} else if(pressedbutton == SP_DOWN) {
 			i++;
@@ -444,7 +449,7 @@ void main()
 	char option_bb[] = "Slot 2";
 	char option_bc[] = "Slot 3";
 	char option_bd[] = "Slot 4";
-	char option_ca[] = "Slide-Show";
+	char option_ca[] = "Initialize All";
 	char option_cb[] = "Clock";
 	word x = 1;
 	word y = 1;
@@ -452,6 +457,12 @@ void main()
 	byte brush = 1;
 	byte menu_option = 0;
 	byte save = 0;
+	byte diag_hex = CheckButtons();
+	deref(0xE002) = diag_hex;
+	if(diag_hex == SP_HOME)
+	{
+		hex_edit();
+	}
 	deref(0xf0c7) = 0x01;
 /*
 	deref(0xf00a) = 0x81;
@@ -459,9 +470,12 @@ void main()
 	deref(0xf031) = 0x15;
 	deref(0xf032) = 0x12;
 	deref(0xf033) = 0x03;
-	deref(0xf034) = 0x03;
-	deref(0xf035) = 0x17;
+*/
+	deref(0xf034) = 0x06;
+
+//	deref(0xf035) = 0x17;
 	deref(0xf036) = 0x08;
+/*
 	deref(0xf037) = 0x04;
 	deref(0xf039) = 0;
 
@@ -504,7 +518,7 @@ void main()
 	render(dark);
 	deref(0xF037) = 0;
 	render(light);
-	wait(2);
+	delay(0x2001);
 	for(i = 0;i <2048;i++)
 	{
 	    deref(0xF037) = 0;
@@ -517,6 +531,7 @@ void main()
 		byte pressedbutton = CheckButtons();
 		if(pressedbutton == 0xff)
 		{
+			delay(0x100);
 			continue;
 		}
 		if(pressedbutton == SP_DOWN)
@@ -568,8 +583,33 @@ void main()
             } else if(menu_option == 4)
             {
                 save = menu_2(option_ca,option_cb);
-                if(save == 2)
+                if(save == 1)
                 {
+                	char initall[] = "INITIALIZED ALL";
+                	char ac[] = "PRESS ON";
+                	for(i = 0;i <20480;i++)
+                	{
+                		deref(0x9000 + i) = 0;
+                	}
+                	print(initall,2,2,2);
+                	print(ac,2,3,2);
+                	while(1)
+                	{
+                		pressedbutton = CheckButtons();
+                		if(pressedbutton == 0xFF)
+                		{
+                			delay(0x100);
+                			continue;
+                		}
+
+                		if(pressedbutton == 0x1D)
+                		{
+                			break;
+                		}
+                	}
+                	break;
+
+                } else if(save == 2) {
 
                 	byte sec = deref(0xf0c0);
                 	byte min = deref(0xf0c1);
@@ -607,6 +647,7 @@ void main()
 
                 		if(pressedbutton == 0xFF)
                 		{
+                			delay(0x100);
                 			continue;
                 		}
                 		deref(0xe0e8) = pressedbutton;
@@ -620,6 +661,7 @@ void main()
                 				pressedbutton = CheckButtons();
                 				if(pressedbutton == 0xFF)
                 				{
+                					delay(0x100);
                 					continue;
                 				} else if(pressedbutton == SP_UP) {
                 					if((deref(ad_dr)&0xF)==9)
@@ -796,6 +838,110 @@ void custom_break()
 		//draw_line(1,1,192,20);
 		print(error,1,1,2);
 		print(message,1,2,1);
+	}
+
+}
+
+char printcharbuf[2] = "\x00";
+
+void PrintChar(word car, byte x, byte y, byte color)
+{
+	printcharbuf[0] = car;
+	print(printcharbuf,x,y,color);
+}
+
+char printdwordbuf[5] = "\x00\x00\x00\x00";
+
+void PrintWord(word num, byte x, byte y, byte color)
+{
+	byte luup = 0;
+	byte* out = &printdwordbuf[3];
+	for(luup = 0; luup < 3; luup++)
+	{
+		if((num&0xf) > 0x9)
+		{
+			*out = 'a'+(num&0xf)-0xa;
+		}
+		else
+		{
+			*out = '0'+(num&0xf);
+		}
+		num = num>>4;
+		if(!num)
+		{
+			print(out,x,y,color);
+			return;
+		}
+		out--;
+	}
+	if((num&0xf) > 0x9)
+	{
+		*out = 'a'+(num&0xf)-0xa;
+	}
+	else
+	{
+		*out = '0'+(num&0xf);
+	}
+	print(out,x,y,color);
+}
+
+
+void hex_edit()
+{
+	word ad_dr = 0;
+	while(1)
+	{
+		word i = 0;
+		byte j = 0;
+		byte k = 0;
+		byte byter = 0;
+		for(i = 0;i <2048;i++)
+		{
+    		deref(0xF037) = 0;
+    		deref(0xF800+i) = 0;
+    		deref(0xF037) = 4;
+    		deref(0xF800+i) = 0;
+		}
+		i = 0;
+
+		for(i = 0; i < 4; i++)
+		{
+			for(j = 0; j < 6; j++)
+			{
+				byter = deref(ad_dr+k);
+				PrintWord(ad_dr+k-5,0,i,2);
+				PrintWord(byter,(j*3)+5,i,2);
+				k++;
+				//PrintChar(0x7C,17,i,2);
+				//if(byter == 0)
+				//{
+				//	PrintChar(0x2E,j+18,i,2);
+				//} else {
+				//	PrintChar(byter,j+18,i,2);
+				//}
+			}
+		}
+		while(1)
+		{
+			byte pressedbutton = CheckButtons();
+			if(pressedbutton == 0xff)
+			{
+				delay(0x100);
+				continue;
+			} else if(pressedbutton == SP_UP) {
+				ad_dr -= 24;
+				break;
+			} else if(pressedbutton == SP_DOWN) {
+				ad_dr += 24;
+				break;
+			} else if(pressedbutton == SP_PLUS) {
+				ad_dr -= 240;
+				break;
+			} else if(pressedbutton == SP_MINUS) {
+				ad_dr += 240;
+				break;
+			}
+		}
 	}
 
 }
