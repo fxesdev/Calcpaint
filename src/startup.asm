@@ -37,136 +37,160 @@ _BRK:
 _INT:
 	rti
 
+_060EC:
+	PUSH LR
+	MOV ER2, ER0
+	TB 0F00AH.1
+	BNE _$L074
+_$L00A:
+	DI
+	MOV ER0, #01H
+	ST ER0, 0F024H
+	MOV ER0, #00H
+	ST ER0, 0F022H
+	ST ER2, 0F020H
+	MOV R0, #01H
+	ST R0, 0F025H
+	MOV R0, #00H
+	ST R0, 0F014H
+	ST R0, 0F015H
+	MOV R2, #50H
+	MOV R3, #0A0H
+	ST R2, 0F008H
+	ST R3, 0F008H
+	MOV R0, #02H
+	ST R0, 0F009H
+	NOP
+	NOP
+_$L044:
+	L R0, 0F042H
+	BNE _$L072
+_$L04A:
+	MOV ER0, #0FH
+	ST ER0, 0F024H
+	MOV ER0, #00H
+	ST ER0, 0F022H
+	MOV R0, #9EH
+	MOV R1, #07H
+	ST ER0, 0F020H
+	MOV R0, #01H
+	ST R0, 0F025H
+	MOV R0, #00H
+	ST R0, 0F014H
+	ST R0, 0F015H
+	EI
+_$L072:
+	POP PC
+_$L074:
+	RB 0F00AH.1
+	BAL _$L00A
+
 $$start_up:
-	bl	_reset_lr
-	mov	r0,	#0
-	st	r0,	DSR
-	bl	_init_SFR
-	mov	r0,	#0C8h
-	mov	r1,	#5
-	bl	_timer
-	bl	_reset_SFR
-	b	_entry
+	MOV R0, #00H
+	ST R0, 0F000H
+	B _2F060
 
-_reset_lr:
-	rt
+_2F060:
+	L R0, 0F058H
+	MOV R4, R0
+	BL _3DEDE
+	MOV R0, #40H
+	MOV R1, #06H
+	BL _060EC
+	MOV R0, #81H
+	ST R0, 0F00AH
+	MOV R0, #04H
+	ST R0, 0F030H
+	MOV R0, #03H
+	ST R0, 0F033H
+	MOV R0, #06H
+	ST R0, 0F034H
+	MOV R0, #17H
+	ST R0, 0F035H
+	MOV R0, #08H
+	ST R0, 0F036H
+	MOV R0, #00H
+	ST R0, 0F039H
+	MOV R0, #55H
+	ST R0, 0F031H
+	BL _entry
 
-_init_SFR:
-	push	lr
-	mov	r0,	#31h
-	st	r0,	FCON
-	mov	r0,	#17h
-	st	r0,	BLKCON0
 
-	mov	r0,	#32h
-_$init_clock:
-	add	r0,	#-1h
-	bne	_$init_clock
-	lea	IE0
-	mov	er0,	#20h
-	st	er0,	[ea+]
-	st	r1,	[ea]
-	mov	r0,	#7h
-	st	r0,	0F03Dh
-	mov	r0,	#50h
-	mov	r1,	#0
-	bl	_timer
-	bl	_init_screen
-	bl	_init_port1
-	bl	_init_port0
-	bl	_init_p00
-	mov	er0,	#0
-	st	r0,	KIMASK
-	st	er0,	KOD
-	pop	pc
-
-_timer:
-	sb	XTM0
-	rb	XTM1
-	rb	DTM0
-	di
-	mov	er2,	#1
-	st	er2,	TM0CON
-	mov	er2,	#0
-	st	er2,	TM0C
-	st	er2,	IRQ0
-	st	r2,	IRQ2
-	sb	ETM0
-	st	er0,	TM0D
-	mov	r0,	#1
-	st	r0,	TM0CON1
-_stop:
-	mov	r0,	#50h
-	mov	r1,	#0A0h
-	st	r0,	STPACP
-	st	r1,	STPACP
-	mov	r0,	#2
-	st	r0,	SBYCON
-	nop
-	nop
-	rt
-
-_init_screen:
-	mov	r0,	#4
-	st	r0,	0F030h
-	mov	r0,	#7
-	st	r0,	0F033h
-	mov	r0,	#9
-	st	r0,	0F034h
-	mov	r0,	#17h
-	st	r0,	0F035h
-	mov	er0,	#1
-	st	r0,	0F036h
-	st	r1,	0F039h
-	mov	r0,	#17h
-	st	r0,	0F031h
-	mov	r0,	#12h
-	st	r0,	0F032h
-	rt
-
-_init_port1:
-	lea	P1D
-	mov	r0,	#0
-	mov	r1,	#7Fh
-	st	er0,	[ea+]
-	st	er0,	[ea+]
-	st	r0,	[ea]
-	rt
-
-_init_port0:
-	lea	P0D
-	mov	er0,	#0
-	mov	er2,	#7
-	st	er0,	[ea+]
-	st	er2,	[ea+]
-	st	r2,	[ea]
-	rt
-
-_init_p00:
-	mov	r0,	#0
-	st	r0,	KICON
-	mov	r0,	#80h
-	mov	r1,	#0FFh
-	st	er0,	KOMASK
-	rt
-
-_reset_SFR:
-	mov	r0,	#1
-	st	r0,	FCON
-	mov	r0,	#4
-	st	r0,	0F030h
-	mov	r0,	#3
-	st	r0,	0F033h
-	mov	r0,	#9
-	st	r0,	0F034h
-	mov	r0,	#17h
-	st	r0,	0F035h
-	mov	er0,	#1
-	st	r0,	0F036h
-	st	r1,	0F039h
-	mov	r0,	#15h
-	st	r0,	0F031h
-	rt
+_3DEDE:
+	PUSH LR
+	MOV R0, #31H
+	ST R0, 0F00AH
+	MOV R0, #0F7H
+	ST R0, 0F028H
+	MOV R0, #32H
+_$L010:
+	ADD R0, #-1H
+	CMP R0, #00H
+	BNE _$L010
+	MOV R0, #22H
+	ST R0, 0F010H
+	MOV R0, #00H
+	ST R0, 0F011H
+	ST R0, 0F012H
+	MOV R0, #03H
+	ST R0, 0F018H
+	MOV R0, #00H
+	ST R0, 0F058H
+	MOV R0, #00H
+	ST R0, 0F042H
+	MOV R0, #07H
+	ST R0, 0F03DH
+	MOV R0, #0C8H
+	MOV R1, #00H
+_$L02E:
+	BL _060EC
+	MOV R0, #04H
+	ST R0, 0F030H
+	MOV R0, #07H
+	ST R0, 0F033H
+	MOV R0, #06H
+	ST R0, 0F034H
+	MOV R0, #17H
+	ST R0, 0F035H
+	MOV R0, #08H
+	ST R0, 0F036H
+	MOV R0, #00H
+	ST R0, 0F039H
+	MOV R0, #57H
+	ST R0, 0F031H
+	MOV R0, #12H
+	ST R0, 0F032H
+	MOV R0, #00H
+	ST R0, 0F220H
+	MOV R0, #7FH
+	ST R0, 0F221H
+	MOV R0, #00H
+	ST R0, 0F222H
+	MOV R0, #7FH
+	ST R0, 0F223H
+	MOV R0, #00H
+	ST R0, 0F224H
+	ST R0, 0F225H
+	MOV R0, #00H
+	ST R0, 0F048H
+	ST R0, 0F049H
+	MOV R0, #07H
+	ST R0, 0F04AH
+	MOV R0, #00H
+	ST R0, 0F04BH
+	MOV R0, #07H
+	ST R0, 0F04CH
+	MOV R0, #00H
+	ST R0, 0F04EH
+	MOV R0, #00H
+	ST R0, 0F041H
+	MOV R0, #80H
+	ST R0, 0F044H
+	MOV R0, #0FFH
+	ST R0, 0F045H
+	MOV R2, #00H
+	ST R2, 0F046H
+	POP PC
 
 _entry:
 	b _main
